@@ -105,10 +105,13 @@ instance (X : Type*) [MetricSpace X] : CoarseSpace X where
       exact bd_t
     let ⟨x,h⟩:= xsh
     let ⟨y,g⟩:= ytg
-    /- Idea for proceeding: take s₁ ∈ s, t₁ ∈ t (by non_s, non_t),
-    set R:= dist s₁ t₁, and show that R + x + y is upper bound
-    (by triangle inequality)-/
-    sorry
+    /- Idea for proceeding: take s₁=(s_11, s_12) ∈ s, t₁=(t_11, t_12) ∈ t (by non_s, non_t),
+    set R:= max{x,y}, and show that R is upper bound -/
+    let R := maxDefault x y
+
+
+
+
 
   IsControlled_diag := sorry
   IsControlled_inv := sorry
