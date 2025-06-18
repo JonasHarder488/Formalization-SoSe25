@@ -86,6 +86,8 @@ end lemmas_defs_for_metric_coarse
 instance (X : Type*) [MetricSpace X] : CoarseSpace X where
   IsControlled := exists_diam
   IsControlled_union := by
+    -- show that the union is nonempty
+    -- have {X: Type*} [MetricSpace X] (s t: Set (X×X)): (dist_set s).Nonempty ∧ (dist_set t).Nonempty → (dist_set (s∪t)).Nonempty := by
     rintro s t ⟨non_s, bd_s⟩ ⟨non_t, bd_t⟩
     constructor
     rw [<- nonempty_set_distset]
@@ -96,7 +98,7 @@ instance (X : Type*) [MetricSpace X] : CoarseSpace X where
     let ⟨x,h⟩:= xh
     use x
     tauto
-    --
+    -- show that union is bounded above
     unfold BddAbove
     unfold upperBounds
     have xsh : ∃ x: ℝ, ∀{a: ℝ}, a ∈ dist_set s → a ≤ x := by
@@ -105,9 +107,65 @@ instance (X : Type*) [MetricSpace X] : CoarseSpace X where
       exact bd_t
     let ⟨x,h⟩:= xsh
     let ⟨y,g⟩:= ytg
-    /- Idea for proceeding: take s₁=(s_11, s_12) ∈ s, t₁=(t_11, t_12) ∈ t (by non_s, non_t),
+    /- Idea for proceeding: take s₁=(s_11, s_12) ∈ s∪t (by non_s, non_t),
     set R:= max{x,y}, and show that R is upper bound -/
-    let R := maxDefault x y
+    let R :=  max x y
+    -- should not need that (but maybe later)
+    have x_sth : ∃ x₁ : X×X, x₁∈ s∪ t := by
+      rw[<- nonempty_set_distset] at non_s
+      have x2h: ∃ x₂: X×X, x₂∈ s := by
+        exact non_s
+      let ⟨x₂,h₂⟩:= x2h
+      use x₂
+      tauto
+    let ⟨x₁,h₁⟩:= x_sth
+    let ⟨x_11, x_12⟩:= x₁
+
+    have forall_upper_bd_st : ∀x_11 x_12 : X, (x_3 : (x_11, x_12)∈ s ∪ t) → dist x_11 x_12 ≤ R := by
+      intro x_11 x_12 h
+      cases h
+      have taut_1 : dist x_11 x_12 ∈ dist_set s := by
+        simp
+        tauto
+      have upper_1 : dist x_11 x_12 ≤ x := by
+        apply h
+        exact taut_1
+      have taut_11 : x ≤ R := by
+        unfold R
+        exact le_max_left x y
+      trans x
+      exact upper_1
+      exact taut_11
+      --
+      have taut_2 : dist x_11 x_12 ∈ dist_set t := by
+        simp
+        tauto
+      have upper_2 : dist x_11 x_12 ≤ y := by
+        apply g
+        exact taut_2
+      have taut_22 : y ≤ R := by
+        unfold R
+        exact le_max_right x y
+      trans y
+      exact upper_2
+      exact taut_22
+    use R
+    let ⟨x_st, h_st⟩ := x_sth
+    have upper_bd_st : dist (π₁ x_st h_st) (π₂ x_st h_st) ≤ R := by
+      apply forall_upper_bd_st
+      tauto
+    simp
+    have first_direction : (dist_set (s∪t)).Nonempty := by
+      sorry
+    let a_sth : ∃ a: ℝ, a∈ dist_set (s∪t) := by
+      exact first_direction
+    let ⟨a_st, ha_st⟩ := a_sth
+    have x_sth_2 : (∃ x : X× X, x∈ s∪t ) ∧ (dist )
+
+
+
+
+
 
 
 
