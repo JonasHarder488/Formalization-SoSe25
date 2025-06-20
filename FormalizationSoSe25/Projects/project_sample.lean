@@ -26,7 +26,7 @@ end set_operations
 class CoarseSpace (X : Type*) where
   IsControlled : Set (X × X) → Prop
   IsControlled_union : ∀ s t : Set (X × X), IsControlled s → IsControlled t → IsControlled (s ∪ t)
-  IsControlled_diag : Set (X×X) := SetDiag X
+  IsControlled_diag : IsControlled (SetDiag X)
   IsControlled_inv : ∀ s : Set (X×X), IsControlled s → IsControlled (SetInv s)
   IsControlled_prod : ∀ s t : Set (X × X), IsControlled s → IsControlled t → IsControlled (SetProd s t)
 
@@ -81,9 +81,20 @@ def exists_diam {X : Type*} [MetricSpace X] (s : Set (X×X)) : Prop := (dist_set
 
 end lemmas_defs_for_metric_coarse
 
--- Proof that every MetricSpace is a CoarseSpace
+-- Proof that every nonempty MetricSpace is a CoarseSpace
+-- we need the @ to make the implicit argument explicit
+#check @Set.univ
 
-instance (X : Type*) [MetricSpace X] : CoarseSpace X where
+class NonemptyMetricSpace (X: Type*) where
+  Nonemptiness : (@Set.univ X).Nonempty
+  Metricness : MetricSpace X
+
+#check @NonemptyMetricSpace
+
+instance {X : Type*} [NonemptyMetricSpace X] : MetricSpace X := by
+  apply NonemptyMetricSpace.Metricness
+
+instance {X : Type*} [NonemptyMetricSpace X] :  CoarseSpace X where
   IsControlled := exists_diam
   IsControlled_union := by
     -- show that the union is nonempty
@@ -110,7 +121,7 @@ instance (X : Type*) [MetricSpace X] : CoarseSpace X where
     /- Idea for proceeding: take s₁=(s_11, s_12) ∈ s∪t (by non_s, non_t),
     set R:= max{x,y}, and show that R is upper bound -/
     let R :=  max x y
-    -- should not need that (but maybe later)
+    -- should not need that (but for some reason, forall_upper_bd_st does not compile without it)
     have x_sth : ∃ x₁ : X×X, x₁∈ s∪ t := by
       rw[<- nonempty_set_distset] at non_s
       have x2h: ∃ x₂: X×X, x₂∈ s := by
@@ -120,7 +131,7 @@ instance (X : Type*) [MetricSpace X] : CoarseSpace X where
       tauto
     let ⟨x₁,h₁⟩:= x_sth
     let ⟨x_11, x_12⟩:= x₁
-
+    --
     have forall_upper_bd_st : ∀x_11 x_12 : X, (x_3 : (x_11, x_12)∈ s ∪ t) → dist x_11 x_12 ≤ R := by
       intro x_11 x_12 h
       cases h
@@ -155,22 +166,49 @@ instance (X : Type*) [MetricSpace X] : CoarseSpace X where
       apply forall_upper_bd_st
       tauto
     simp
-    have first_direction : (dist_set (s∪t)).Nonempty := by
+    -- we want to show that the goal is equivalent to forall_upper_bd_st
+    convert forall_upper_bd_st
+    constructor
+    intro h_3 x_31 x_32 h_x3
+    apply forall_upper_bd_st
+    exact h_x3
+    --
+    intro g_3 a_3 x_31 x_32 h_x3 f_x3
+    have taut_3 : (x_31, x_32) ∈ s∪ t := by
+      exact h_x3
+    rw[<- f_x3]
+    apply forall_upper_bd_st
+    apply taut_3
+
+  IsControlled_diag := by
+    constructor
+    unfold SetDiag
+    rw[<- nonempty_set_distset]
+    have x: X := by
       sorry
-    let a_sth : ∃ a: ℝ, a∈ dist_set (s∪t) := by
-      exact first_direction
-    let ⟨a_st, ha_st⟩ := a_sth
-    have x_sth_2 : (∃ x : X× X, x∈ s∪t ) ∧ (dist )
+    use ⟨x,x⟩
+    tauto
+    sorry
 
-
-
-
-
-
-
-
-
-
-  IsControlled_diag := sorry
-  IsControlled_inv := sorry
+  IsControlled_inv := by
+    rintro s ⟨non_s, bd_s⟩
+    constructor
+    rw[<- nonempty_set_distset]
+    rw[<- nonempty_set_distset] at non_s
+    have x_hs : ∃ x: X×X, x ∈ s := by
+      exact non_s
+    let ⟨x,hs⟩ := x_hs
+    let ⟨x_1, x_2⟩ := x
+    use ⟨x_2,x_1⟩
+    tauto
+    --
+    have distset_eq : dist_set s = dist_set (SetInv s) := by
+      have h :  ∀ (x_1 x_2 : X), dist x_1 x_2 = dist x_2 x_1 := by
+        exact dist_comm
+      simp
+      have h2 : SetInv s = {⟨x_2, x_1⟩| (x_2 : X) (x_1 : X) (h : ⟨x_1,x_2⟩∈ s)} := by
+        sorry
   IsControlled_prod := sorry
+
+  #print NonemptyMetricSpace.Nonemptiness
+  #check (Set.univ).Nonempty
