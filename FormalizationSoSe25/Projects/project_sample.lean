@@ -5,9 +5,7 @@ import Mathlib.Tactic
 -/
 
 section set_operations
-  def SetInv {X : Type*} (sub : Set (X × X)) : Set (X × X) := by
-    rintro  ⟨ e1, e2 ⟩
-    exact sub ⟨ e2, e1 ⟩
+  def SetInv {X : Type*} (sub : Set (X × X)) : Set (X × X) := {⟨x_2, x_1⟩| (⟨x_1,x_2⟩∈ sub)}
 
   def SetDiag (X : Type*) : Set (X×X) := {⟨x,x⟩| x : X }
 
@@ -31,7 +29,15 @@ class CoarseSpace (X : Type*) where
   IsControlled_prod : ∀ s t : Set (X × X), IsControlled s → IsControlled t → IsControlled (SetProd s t)
 
 
+/-We subsequently define coarse maps, which are needed in order to formulate the end goal. In order to
+do that, one first needs proper and bornologous maps, and before that, we need a notion of boundedness.-/
 
+section coarse_maps
+  def IsBounded {X : Type*} [h: CoarseSpace X] (B : Set X) : Prop := @CoarseSpace.IsControlled X h {⟨a,b⟩|(a∈ B) (b∈ B)}
+  def IsProper (X: Type*) [CoarseSpace X] (f: X→ X) : Prop := ∀ {B: Set X} (h: IsBounded B)
+end coarse_maps
+
+#check @CoarseSpace.IsControlled
 /- In the following, we want to establish that every MetricSpace is coarse by showing that an arbitrary
 MetricSpace is an instance of a CoarseSpace. This holds, if we define s ⊆ X×X controlled ↔ diam(s) := sup{d(x,y)| (x,y) ∈ S} < ∞.
 We start with a section for auxiliary lemmas and definitions.
@@ -200,14 +206,36 @@ instance {X : Type*} [NonemptyMetricSpace X] :  CoarseSpace X where
     let ⟨x,hs⟩ := x_hs
     let ⟨x_1, x_2⟩ := x
     use ⟨x_2,x_1⟩
-    tauto
+    unfold SetInv
+    simp
+    exact hs
     --
     have distset_eq : dist_set s = dist_set (SetInv s) := by
       have h :  ∀ (x_1 x_2 : X), dist x_1 x_2 = dist x_2 x_1 := by
         exact dist_comm
+      unfold dist_set
+      unfold SetInv
       simp
-      have h2 : SetInv s = {⟨x_2, x_1⟩| (x_2 : X) (x_1 : X) (h : ⟨x_1,x_2⟩∈ s)} := by
-        sorry
+      ext
+      constructor
+      intro ⟨a,b,h_ab,h_dist⟩
+      simp
+      use b
+      use a
+      use h_ab
+      rw[h]
+      exact h_dist
+      --
+      intro ⟨a,b,h_ab,h_dist⟩
+      simp
+      use b
+      use a
+      use h_ab
+      rw[h]
+      exact h_dist
+    rw[<-distset_eq]
+    exact bd_s
+
   IsControlled_prod := sorry
 
   #print NonemptyMetricSpace.Nonemptiness
