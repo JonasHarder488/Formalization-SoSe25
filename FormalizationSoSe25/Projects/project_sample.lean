@@ -9,12 +9,7 @@ section set_operations
 
   def SetDiag (X : Type*) : Set (X×X) := {⟨x,x⟩| x : X }
 
-  def SetProd {X : Type*} (sub₁ : Set (X × X))  (sub₂ : Set (X × X)) : Set (X × X) := by
-    rintro e
-    have indicator : (X × X) → Prop := by
-      rintro ⟨x₁, x₂⟩
-      exact ∃ x₃: X, sub₁ ⟨x₁,x₃ ⟩ ∧ ∃ x₄, sub₂ ⟨x₄, x₂⟩
-    exact indicator e
+  def SetProd {X : Type*} (sub₁ : Set (X × X))  (sub₂ : Set (X × X)) : Set (X × X) := {⟨x_1, x_4⟩ | ∃ (x_2 : X), (⟨x_1, x_2⟩∈ sub₁)∧ ∃ (x_3 : X), (⟨x_3,x_4⟩ ∈ sub₂)}
 
 end set_operations
 
@@ -34,7 +29,17 @@ do that, one first needs proper and bornologous maps, and before that, we need a
 
 section coarse_maps
   def IsBounded {X : Type*} [h: CoarseSpace X] (B : Set X) : Prop := @CoarseSpace.IsControlled X h {⟨a,b⟩|(a∈ B) (b∈ B)}
-  def IsProper (X: Type*) [CoarseSpace X] (f: X→ X) : Prop := ∀ {B: Set X} (h: IsBounded B)
+  def IsProper {X: Type*} {Y: Type*} [CoarseSpace X] [CoarseSpace Y] (f: X→ Y) : Prop := ∀ {B: Set Y}, (IsBounded B) →  (IsBounded (Set.preimage f B))
+  def IsBornological {X: Type*} {Y: Type*} [CoarseSpace X] [CoarseSpace Y] (f: X→ Y): Prop := ∀ {E : Set (X×X)}, (CoarseSpace.IsControlled E) → (CoarseSpace.IsControlled (Set.image (Prod.map f f) E))
+  def IsCoarse {X : Type*} {Y: Type*}[CoarseSpace X] [CoarseSpace Y] (f: X→Y) : Prop := IsProper f ∧ IsBornological f
+
+  /-Another notion needed is that of closeness of maps-/
+
+  def IsClose {X: Type*} {Y:Type*} [CoarseSpace Y] (f: X→ Y) (g: X→ Y) : Prop := CoarseSpace.IsControlled ({⟨f x , g x⟩| x : X})
+
+  /- Now, we can define coarse equvialence (our endgoal is to show that ℝ and ℤ are coarsely equivalent)-/
+
+  def IsCoarselyEquivalent (X: Type*) (Y: Type*) [CoarseSpace X] [CoarseSpace Y] : Prop := ∃ (f : X→Y) (g: Y→ X), (IsCoarse f) ∧ (IsCoarse g) ∧ (IsClose (f ∘ g) id ) ∧ (IsClose (g∘ f) id)
 end coarse_maps
 
 #check @CoarseSpace.IsControlled
@@ -236,7 +241,24 @@ instance {X : Type*} [NonemptyMetricSpace X] :  CoarseSpace X where
     rw[<-distset_eq]
     exact bd_s
 
-  IsControlled_prod := sorry
-
-  #print NonemptyMetricSpace.Nonemptiness
-  #check (Set.univ).Nonempty
+  IsControlled_prod := by
+    rintro s t ⟨non_s, bd_s⟩ ⟨non_t, bd_t⟩
+    constructor
+    rw[<- nonempty_set_distset]
+    unfold SetProd
+    have ⟨⟨x_s1,x_s2⟩, h_s⟩ : ∃ x: X× X, x∈ s := by
+      rw[<- nonempty_set_distset] at non_s
+      exact non_s
+    have ⟨⟨x_t1,x_t2⟩, h_t⟩ : ∃ x: X× X, x∈ t := by
+      rw[<- nonempty_set_distset] at non_t
+      exact non_t
+    have prod_element : ⟨x_s1, x_t2⟩∈ SetProd s t := by
+      unfold SetProd
+      use x_s2
+      constructor
+      exact h_s
+      --
+      use x_t1
+    use ⟨x_s1, x_t2⟩
+    exact prod_element
+    --
