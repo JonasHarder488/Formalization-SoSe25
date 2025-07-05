@@ -9,7 +9,7 @@ section set_operations
 
   def SetDiag (X : Type*) : Set (X×X) := {⟨x,x⟩| x : X }
 
-  def SetProd {X : Type*} (sub₁ : Set (X × X))  (sub₂ : Set (X × X)) : Set (X × X) := {⟨x_1, x_4⟩ | ∃ (x_2 : X), (⟨x_1, x_2⟩∈ sub₁)∧ ∃ (x_3 : X), (⟨x_3,x_4⟩ ∈ sub₂)}
+  def SetProd {X : Type*} (sub₁ : Set (X × X))  (sub₂ : Set (X × X)) : Set (X × X) := {⟨x_1, x_3⟩ | ∃ (x_2 : X), (⟨x_1, x_2⟩∈ sub₁)∧  (⟨x_2,x_3⟩ ∈ sub₂)}
 
 end set_operations
 
@@ -88,102 +88,109 @@ lemma nonempty_set_distset {X : Type*} [MetricSpace X] (s : Set (X×X)) : s.None
 
 -- Definition for the conditions of the existence of diam(s)
 
-def exists_diam {X : Type*} [MetricSpace X] (s : Set (X×X)) : Prop := (dist_set s).Nonempty ∧ BddAbove (dist_set s)
+-- Wrong one: def exists_diam {X : Type*} [MetricSpace X] (s : Set (X×X)) : Prop := (dist_set s).Nonempty ∧ BddAbove (dist_set s)
+def ex_diam {X : Type*} [MetricSpace X] (s : Set (X×X)) : Prop :=  BddAbove (dist_set s)
 
 end lemmas_defs_for_metric_coarse
 
--- Proof that every nonempty MetricSpace is a CoarseSpace
--- we need the @ to make the implicit argument explicit
-#check @Set.univ
 
-class NonemptyMetricSpace (X: Type*) where
-  Nonemptiness : (@Set.univ X).Nonempty
-  Metricness : MetricSpace X
+section more_lemma
 
-#check @NonemptyMetricSpace
+lemma non_non_empty_is_empty {X:Type*} (s : Set X): ¬ s.Nonempty → s = ∅ := by
+  have excluded_middle_s : s = ∅ ∨ s.Nonempty := by
+    have almost_ex_mid: IsEmpty s ∨ Nonempty s := by
+      exact @isEmpty_or_nonempty s
+    unfold Nonempty at almost_ex_mid
+    have taut_1 : IsEmpty s ↔ s = ∅ := by
+      simp
+    have taut_2 : s.Nonempty ↔ Nonempty s := by
+      simp
+      tauto
+    rw [taut_1] at almost_ex_mid
+    rw [<-taut_2] at almost_ex_mid
+    exact almost_ex_mid
+  convert excluded_middle_s
+  tauto
 
-instance {X : Type*} [NonemptyMetricSpace X] : MetricSpace X := by
-  apply NonemptyMetricSpace.Metricness
+end more_lemma
 
-instance {X : Type*} [NonemptyMetricSpace X] :  CoarseSpace X where
-  IsControlled := exists_diam
-  IsControlled_union := by
-    -- show that the union is nonempty
-    -- have {X: Type*} [MetricSpace X] (s t: Set (X×X)): (dist_set s).Nonempty ∧ (dist_set t).Nonempty → (dist_set (s∪t)).Nonempty := by
-    rintro s t ⟨non_s, bd_s⟩ ⟨non_t, bd_t⟩
-    constructor
-    rw [<- nonempty_set_distset]
-    rw [<- nonempty_set_distset] at non_s
-    rw [<- nonempty_set_distset] at non_t
-    have xh :∃ x : X×X, x∈ s := by
-      exact non_s
-    let ⟨x,h⟩:= xh
-    use x
-    tauto
-    -- show that union is bounded above
+instance {X : Type*} [MetricSpace X] :  CoarseSpace X where
+  IsControlled := ex_diam
+  IsControlled_union:= by
+    rintro s t bd_s bd_t
+    by_cases empt_union : (s∪t).Nonempty
+    swap
+
+    ----- case (s∪t) empty
+    rw[nonempty_set_distset] at empt_union
+    unfold ex_diam
+    have s_t_empty : dist_set (s∪ t) = ∅ := by
+      apply non_non_empty_is_empty
+      exact empt_union
+    rw[s_t_empty]
+    exact bddAbove_empty
+
+    ----- case (s∪t) not empty
+    unfold ex_diam
     unfold BddAbove
     unfold upperBounds
-    have xsh : ∃ x: ℝ, ∀{a: ℝ}, a ∈ dist_set s → a ≤ x := by
+    have ⟨sbound,h_sbound⟩ : ∃ y: ℝ, ∀{a: ℝ}, a ∈ dist_set s → a ≤ y := by
       exact bd_s
-    have ytg : ∃ y: ℝ, ∀{a: ℝ}, a ∈ dist_set t → a ≤ y := by
+    have ⟨tbound,h_tbound⟩ : ∃ y: ℝ, ∀{a: ℝ}, a ∈ dist_set t → a ≤ y := by
       exact bd_t
-    let ⟨x,h⟩:= xsh
-    let ⟨y,g⟩:= ytg
-    /- Idea for proceeding: take s₁=(s_11, s_12) ∈ s∪t (by non_s, non_t),
-    set R:= max{x,y}, and show that R is upper bound -/
-    let R :=  max x y
-    -- should not need that (but for some reason, forall_upper_bd_st does not compile without it)
-    have x_sth : ∃ x₁ : X×X, x₁∈ s∪ t := by
-      rw[<- nonempty_set_distset] at non_s
-      have x2h: ∃ x₂: X×X, x₂∈ s := by
-        exact non_s
-      let ⟨x₂,h₂⟩:= x2h
-      use x₂
-      tauto
-    let ⟨x₁,h₁⟩:= x_sth
-    let ⟨x_11, x_12⟩:= x₁
-    --
-    have forall_upper_bd_st : ∀x_11 x_12 : X, (x_3 : (x_11, x_12)∈ s ∪ t) → dist x_11 x_12 ≤ R := by
-      intro x_11 x_12 h
-      cases h
+
+    -- union_bound is maximum of bounds for s and t and we have to show that it is a bound for s ∪ t
+    let union_bound :=  max sbound tbound
+    -- take an arbitrary element in s∪t
+    have ⟨x_union, h_x_union⟩ : ∃ x : X× X, x∈ s∪ t := by
+      exact empt_union
+
+    -- now we show that union_bound is indeed an upper bound for elements in the union (forall_upper_bd_st)
+    have forall_upper_bd_st : ∀x_11 x_12 : X, ((x_11, x_12)∈ s ∪ t) → dist x_11 x_12 ≤ union_bound := by
+      intro x_11 x_12 h_pair_in_union
+      -- distinguish the cases (x_11, x_22) ∈ s or (x_11, x_22) ∈ t
+      cases h_pair_in_union
+      ----- case (x_11, x_22) ∈ s
       have taut_1 : dist x_11 x_12 ∈ dist_set s := by
         simp
         tauto
-      have upper_1 : dist x_11 x_12 ≤ x := by
-        apply h
+      have upper_1 : dist x_11 x_12 ≤ sbound := by
+        apply h_sbound
         exact taut_1
-      have taut_11 : x ≤ R := by
-        unfold R
-        exact le_max_left x y
-      trans x
+      have taut_11 : sbound ≤ union_bound := by
+        unfold union_bound
+        exact le_max_left sbound tbound
+      trans sbound
       exact upper_1
       exact taut_11
-      --
+      ----- case (x_11, x_22) ∈ t (completely analogous)
       have taut_2 : dist x_11 x_12 ∈ dist_set t := by
         simp
         tauto
-      have upper_2 : dist x_11 x_12 ≤ y := by
-        apply g
+      have upper_2 : dist x_11 x_12 ≤ tbound := by
+        apply h_tbound
         exact taut_2
-      have taut_22 : y ≤ R := by
-        unfold R
-        exact le_max_right x y
-      trans y
+      have taut_22 : tbound ≤ union_bound := by
+        unfold union_bound
+        exact le_max_right sbound tbound
+      trans tbound
       exact upper_2
       exact taut_22
-    use R
-    let ⟨x_st, h_st⟩ := x_sth
-    have upper_bd_st : dist (π₁ x_st h_st) (π₂ x_st h_st) ≤ R := by
+    -- now we need to convince lean that the upper theorem is sufficient --> for that we take the arbitrary element x_union from above
+    use union_bound
+    have upper_bd_st : dist (π₁ x_union h_x_union) (π₂ x_union h_x_union) ≤ union_bound := by
       apply forall_upper_bd_st
       tauto
     simp
-    -- we want to show that the goal is equivalent to forall_upper_bd_st
+    -- we want to show that the goal is equivalent to forall_upper_bd_st (that is for some mysterious)
     convert forall_upper_bd_st
     constructor
+    ----- first direction
+    -- (naming scheme collapsed)
     intro h_3 x_31 x_32 h_x3
     apply forall_upper_bd_st
     exact h_x3
-    --
+    ----- second direction
     intro g_3 a_3 x_31 x_32 h_x3 f_x3
     have taut_3 : (x_31, x_32) ∈ s∪ t := by
       exact h_x3
@@ -192,73 +199,109 @@ instance {X : Type*} [NonemptyMetricSpace X] :  CoarseSpace X where
     apply taut_3
 
   IsControlled_diag := by
-    constructor
-    unfold SetDiag
-    rw[<- nonempty_set_distset]
-    have x: X := by
+    -- distinguish the cases that X is empty or not
+    by_cases empt_X : (@Set.univ X).Nonempty
+    ----- case X nonempty
+    have ⟨x, h_x_X⟩ : ∃ x : X, x ∈ Set.univ := by
+      exact empt_X
+    unfold ex_diam
+    have explicit_dist_set : ∀ a : ℝ, a∈ dist_set (SetDiag X) → a = 0  := by
+      intro a h_dist_a
+      unfold SetDiag at h_dist_a
+      unfold dist_set at h_dist_a
+      simp at h_dist_a
+      have dist_zero : ∀ x : X, (h: ⟨x,x⟩ ∈ @Set.univ (X× X)) → dist (π₁ ⟨x,x⟩ h) (π₂ ⟨x,x⟩ h) = 0 := by
+        have taut_proj : ∀ x : X, (h: ⟨x,x⟩ ∈ @Set.univ (X× X)) → π₁ ⟨x,x⟩ h = π₂ ⟨x,x⟩ h := by
+          unfold π₁
+          unfold π₂
+          tauto
+        simp[taut_proj]
+      let ⟨x,h_dist_x⟩ := h_dist_a
       sorry
-    use ⟨x,x⟩
-    tauto
+    use 0
     sorry
+    ----- case X = ∅
+    have X_is_empty : @Set.univ X = ∅ := by
+      apply non_non_empty_is_empty at empt_X
+      exact empt_X
+    have diagX_is_empty : SetDiag X = ∅ := by
+      unfold SetDiag
+      sorry
+
+
 
   IsControlled_inv := by
-    rintro s ⟨non_s, bd_s⟩
-    constructor
-    rw[<- nonempty_set_distset]
-    rw[<- nonempty_set_distset] at non_s
-    have x_hs : ∃ x: X×X, x ∈ s := by
-      exact non_s
-    let ⟨x,hs⟩ := x_hs
-    let ⟨x_1, x_2⟩ := x
-    use ⟨x_2,x_1⟩
-    unfold SetInv
-    simp
-    exact hs
-    --
+    intro s bd_s
+    -- it is sufficient to show that the dist_set is invariant under taking inverses
     have distset_eq : dist_set s = dist_set (SetInv s) := by
-      have h :  ∀ (x_1 x_2 : X), dist x_1 x_2 = dist x_2 x_1 := by
-        exact dist_comm
       unfold dist_set
       unfold SetInv
       simp
+      -- show both inclusions with ext
       ext
       constructor
-      intro ⟨a,b,h_ab,h_dist⟩
+      ----- first inclusion
+      intro ⟨x_1,x_2,h_x_s,h_dist⟩
       simp
-      use b
-      use a
-      use h_ab
-      rw[h]
+      use x_2
+      use x_1
+      use h_x_s
+      -- using symmetry of the metric
+      rw[dist_comm]
       exact h_dist
-      --
-      intro ⟨a,b,h_ab,h_dist⟩
+      ----- second inclusion (completely analogous)
+      intro ⟨x_1,x_2,h_x_s,h_dist⟩
       simp
-      use b
-      use a
-      use h_ab
-      rw[h]
+      use x_2
+      use x_1
+      use h_x_s
+      rw[dist_comm]
       exact h_dist
-    rw[<-distset_eq]
+    unfold ex_diam
+    rw[<- distset_eq]
     exact bd_s
 
   IsControlled_prod := by
-    rintro s t ⟨non_s, bd_s⟩ ⟨non_t, bd_t⟩
-    constructor
-    rw[<- nonempty_set_distset]
+    rintro s t bd_s bd_t
     unfold SetProd
-    have ⟨⟨x_s1,x_s2⟩, h_s⟩ : ∃ x: X× X, x∈ s := by
-      rw[<- nonempty_set_distset] at non_s
-      exact non_s
-    have ⟨⟨x_t1,x_t2⟩, h_t⟩ : ∃ x: X× X, x∈ t := by
-      rw[<- nonempty_set_distset] at non_t
-      exact non_t
-    have prod_element : ⟨x_s1, x_t2⟩∈ SetProd s t := by
-      unfold SetProd
-      use x_s2
-      constructor
-      exact h_s
-      --
-      use x_t1
-    use ⟨x_s1, x_t2⟩
-    exact prod_element
-    --
+    unfold ex_diam at bd_s bd_t
+    unfold BddAbove at bd_s bd_t
+    have ⟨upper_bd_s, hs⟩ := bd_s
+    have ⟨upper_bd_t, ht⟩:= bd_t
+    have prod_dist : ∀ x_1 x_4 : X, (∃ x_2 : X, (⟨x_1,x_2⟩∈ s)∧ (⟨x_2,x_4⟩∈ t))  → dist x_1 x_4 ≤ upper_bd_s + upper_bd_t := by
+      intro x_1 x_4 ⟨x_2, ⟨h_1,h_2⟩⟩
+      have taut_1 : dist x_1 x_2 ≤ upper_bd_s := by
+        have taut_11 : ∀ y_1 y_2 : X, ⟨y_1,y_2⟩∈ s → dist y_1 y_2 ≤ upper_bd_s := by
+          intro y_1 y_2 h_y
+          unfold upperBounds at hs
+          unfold dist_set at hs
+          apply hs
+          use ⟨y_1,y_2⟩
+          use h_y
+          tauto
+        apply taut_11
+        exact h_1
+      have taut_2 : dist x_2 x_4 ≤ upper_bd_t := by
+        have taut_21 : ∀ y_1 y_2 : X, ⟨y_1,y_2⟩∈ t → dist y_1 y_2 ≤ upper_bd_t := by
+          intro y_1 y_2 h_y
+          unfold upperBounds at ht
+          unfold dist_set at ht
+          apply ht
+          use ⟨y_1,y_2⟩
+          use h_y
+          tauto
+        apply taut_21
+        exact h_2
+      have triangle: dist x_1 x_4 ≤ dist x_1 x_2 + dist x_2 x_4  := by
+        apply dist_triangle
+      apply le_trans
+      apply triangle
+      sorry
+    unfold ex_diam
+    unfold dist_set
+    simp
+    sorry
+
+
+#check EReal.add_le_of_forall_lt
+#check Real.add_lt_add_iff_left
