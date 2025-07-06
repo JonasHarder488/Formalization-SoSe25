@@ -67,6 +67,22 @@ def dist_set {X : Type*} [MetricSpace X] (s : Set (X×X)) : Set ℝ := { dist (�
 -- Lemma for showing that the dist_set of a nonempty set is nonempty and vice versa (very useful for later)
 
 @[simp]
+lemma non_non_empty_is_empty {X:Type*} (s : Set X): ¬ s.Nonempty → s = ∅ := by
+  have excluded_middle_s : s = ∅ ∨ s.Nonempty := by
+    have almost_ex_mid: IsEmpty s ∨ Nonempty s := by
+      exact @isEmpty_or_nonempty s
+    unfold Nonempty at almost_ex_mid
+    have taut_1 : IsEmpty s ↔ s = ∅ := by
+      simp
+    have taut_2 : s.Nonempty ↔ Nonempty s := by
+      simp
+      tauto
+    rw [taut_1] at almost_ex_mid
+    rw [<-taut_2] at almost_ex_mid
+    exact almost_ex_mid
+  convert excluded_middle_s
+  tauto
+
 lemma nonempty_set_distset {X : Type*} [MetricSpace X] (s : Set (X×X)) : s.Nonempty ↔ (dist_set s).Nonempty := by
   constructor
   intro non_s
@@ -85,6 +101,8 @@ lemma nonempty_set_distset {X : Type*} [MetricSpace X] (s : Set (X×X)) : s.None
   let ⟨h₁,h₂,h₃,h₄⟩:= h
   use (⟨h₁,h₂⟩)
 
+lemma empty_set_distset {X : Type*} [MetricSpace X] (s: Set (X× X)) : s = ∅ → (dist_set s) = ∅ := by
+  aesop
 
 -- Definition for the conditions of the existence of diam(s)
 
@@ -92,27 +110,6 @@ lemma nonempty_set_distset {X : Type*} [MetricSpace X] (s : Set (X×X)) : s.None
 def ex_diam {X : Type*} [MetricSpace X] (s : Set (X×X)) : Prop :=  BddAbove (dist_set s)
 
 end lemmas_defs_for_metric_coarse
-
-
-section more_lemma
-
-lemma non_non_empty_is_empty {X:Type*} (s : Set X): ¬ s.Nonempty → s = ∅ := by
-  have excluded_middle_s : s = ∅ ∨ s.Nonempty := by
-    have almost_ex_mid: IsEmpty s ∨ Nonempty s := by
-      exact @isEmpty_or_nonempty s
-    unfold Nonempty at almost_ex_mid
-    have taut_1 : IsEmpty s ↔ s = ∅ := by
-      simp
-    have taut_2 : s.Nonempty ↔ Nonempty s := by
-      simp
-      tauto
-    rw [taut_1] at almost_ex_mid
-    rw [<-taut_2] at almost_ex_mid
-    exact almost_ex_mid
-  convert excluded_middle_s
-  tauto
-
-end more_lemma
 
 instance {X : Type*} [MetricSpace X] :  CoarseSpace X where
   IsControlled := ex_diam
@@ -217,18 +214,44 @@ instance {X : Type*} [MetricSpace X] :  CoarseSpace X where
           tauto
         simp[taut_proj]
       let ⟨x,h_dist_x⟩ := h_dist_a
-      sorry
+      rw[<- h_dist_x]
+      apply dist_zero
+      tauto
     use 0
-    sorry
+    unfold upperBounds
+    simp
+    intro a x_1 x_2 h_x h_dist
+    have taut_dist_elem : a ∈ dist_set (SetDiag X) := by
+      unfold dist_set
+      use ⟨x_1, x_2⟩
+      use h_x
+    have almost_result : a = 0 := by
+      apply explicit_dist_set
+      exact taut_dist_elem
+    apply le_of_eq
+    exact almost_result
+
     ----- case X = ∅
     have X_is_empty : @Set.univ X = ∅ := by
       apply non_non_empty_is_empty at empt_X
       exact empt_X
     have diagX_is_empty : SetDiag X = ∅ := by
       unfold SetDiag
-      sorry
-
-
+      have taut_no_elem : ¬ (∃ x : X, x ∈ @Set.univ X) := by
+        simp
+        rw[<-Set.univ_eq_empty_iff]
+        exact X_is_empty
+      ext x
+      constructor
+      intro h_x
+      aesop
+      aesop
+    unfold ex_diam
+    rw[diagX_is_empty]
+    rw[empty_set_distset]
+    swap
+    tauto
+    exact bddAbove_empty
 
   IsControlled_inv := by
     intro s bd_s
@@ -268,6 +291,7 @@ instance {X : Type*} [MetricSpace X] :  CoarseSpace X where
     unfold BddAbove at bd_s bd_t
     have ⟨upper_bd_s, hs⟩ := bd_s
     have ⟨upper_bd_t, ht⟩:= bd_t
+    -- prod_dist shows that for all elements in s ∘ t the distance is bounded
     have prod_dist : ∀ x_1 x_4 : X, (∃ x_2 : X, (⟨x_1,x_2⟩∈ s)∧ (⟨x_2,x_4⟩∈ t))  → dist x_1 x_4 ≤ upper_bd_s + upper_bd_t := by
       intro x_1 x_4 ⟨x_2, ⟨h_1,h_2⟩⟩
       have taut_1 : dist x_1 x_2 ≤ upper_bd_s := by
@@ -296,12 +320,23 @@ instance {X : Type*} [MetricSpace X] :  CoarseSpace X where
         apply dist_triangle
       apply le_trans
       apply triangle
-      sorry
+      linarith
     unfold ex_diam
     unfold dist_set
+    use upper_bd_s + upper_bd_t
+    unfold upperBounds
     simp
-    sorry
+    intro a x_1 x_2 x_3 h_x h_dist
+    have h_x_prod : ⟨x_1, x_2⟩ ∈ SetProd s t := by
+      unfold SetProd
+      simp
+      use x_3
+    have applied_prod_dist : dist (π₁ ⟨x_1, x_2⟩ h_x_prod) (π₂ ⟨x_1, x_2⟩ h_x_prod)  ≤ upper_bd_s + upper_bd_t := by
+      apply prod_dist
+      use x_3
+      exact h_x
+    rw[<-h_dist]
+    exact applied_prod_dist
 
-
-#check EReal.add_le_of_forall_lt
-#check Real.add_lt_add_iff_left
+theorem main_thm : IsCoarselyEquivalent ℝ ℤ := by
+  sorry
